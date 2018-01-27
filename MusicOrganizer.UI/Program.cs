@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MusicOrganizer.Library;
 
 namespace MusicOrganizer.UI
 {
@@ -14,85 +15,101 @@ namespace MusicOrganizer.UI
             // Check the album path argument
             if (args.Count() == 0 || args[0] == "")
             {
-                Console.WriteLine("Please specify album path! (First argument)");
+                Console.WriteLine("Please specify album path!");
                 return;
             }
 
-            // Check weather the folder exists
-            var albumFolder = new DirectoryInfo(args[0]);
-
-            if (!albumFolder.Exists)
+            var folder = new DirectoryInfo(args[0]);
+            MusicFolder musicFolder;
+            try
             {
-                Console.WriteLine("Folder does not exist");
+                var musicAlbum = Organizer.GetMusicAlbum(folder);
+                musicFolder = new MusicFolder(folder, musicAlbum);
+            }
+            catch(System.ArgumentException ex)
+            {
+                Console.WriteLine(ex.Message);
                 return;
             }
 
-            // Check the folder for content
-            if (albumFolder.GetFiles().Count() < 1)
+            musicFolder.List();
+
+            var quit = false;
+            while (!quit)
             {
-                Console.WriteLine("Folder is empty");
-                return;
+                Console.Write("> ");
+                var input = Console.ReadLine();
+                if (string.IsNullOrEmpty(input))
+                {
+                    continue;
+                }
+
+                // Split input by space
+                var arguments = input.Split(new char[] { ' ' });
+
+                switch (arguments[0])
+                {
+                    case "h":
+                    case "help":
+                        PrintHelp();
+                        break;
+
+                    case "q":
+                    case "quit":
+                        quit = true;
+                        break;
+
+                    case "save":
+                        musicFolder.Save();
+                        break;
+
+                    case "list":
+                        musicFolder.List();
+                        break;
+
+                    case "name":
+                        if(arguments.Count() < 1 || !int.TryParse(arguments[1], out int track))
+                        {
+                            PrintHelp();
+                            break;
+                        }
+                        musicFolder.ChangeName(track);
+                        break;
+
+                    case "swap":
+                        if (arguments.Count() < 2 || !int.TryParse(arguments[1], out int track1) || !int.TryParse(arguments[2], out int track2))
+                        {
+                            PrintHelp();
+                            break;
+                        }
+                        musicFolder.SwapTracks(track1, track2);
+                        break;
+
+                    case "album":
+                        musicFolder.ChangeAlbum();
+                        break;
+
+                    case "artist":
+                        musicFolder.ChangeArtist();
+                        break;
+                }
             }
 
-            // Try to get the artist from a music file
-            var musicFile = Library.FileManager.GetFile(albumFolder.GetFiles().Where(x => Library.FileManager.MusicFileExtenstions.Contains(x.Extension)).First());
-            if (musicFile == null)
-            {
-                Console.WriteLine("Folder does not containt any supported music files");
-                //Console.WriteLine("Supported files: [", Library.FileManager.MusicFileExtenstions.);
-                return;
-            }
+            return;
+        }
 
-            var artist = !string.IsNullOrWhiteSpace(musicFile.Tag.JoinedAlbumArtists) ? musicFile.Tag.JoinedAlbumArtists : musicFile.Tag.JoinedArtists;
-            if (string.IsNullOrWhiteSpace(artist))
-            {
-                artist = albumFolder.Parent.Name;
-            }
-
-            // Ask if artist is correct
-            Console.WriteLine("Is this artist correct? (Y/N)");
-            Console.WriteLine("\"" + artist + "\"");
-
-            // Check answer is Yes or No
-            var answer = Console.ReadKey(intercept: true);
-            while (answer.Key != ConsoleKey.Y && answer.Key != ConsoleKey.N)
-            {
-                Console.WriteLine("Please answer with Yes (= Y) or No (= N)");
-                answer = Console.ReadKey(intercept: true);
-            }
-
-            // Let the user edit the artist
-            if (answer.Key == ConsoleKey.N)
-            {
-                Console.WriteLine("Define the album artist, then press enter");
-                Console.Write("Artist name: ");
-                artist = Console.ReadLine().Trim();
-            }
-
-            Console.WriteLine(artist);
-            Console.ReadKey();
-            //foreach(var file in albumFolder.GetFiles())
-            //{
-
-            //}
-
-
-
-            //var musicFile = Library.FileManager.GetFile(@"C:\Users\Fabian Dev\Downloads\Rage Against The Machine\1994 - Rage Against The Machine\02 - Killing In The Name Of.mp3");
-
-            //if(musicFile == null)
-            //{
-            //    Console.WriteLine("Please specify album path! (First argument)");
-            //    return;
-            //}
-
-            //Console.WriteLine(musicFile.Tag.JoinedArtists);
-            //Console.WriteLine(musicFile.Tag.JoinedAlbumArtists);
-            //Console.WriteLine(musicFile.Tag.Album);
-            //Console.WriteLine(musicFile.Tag.Title);
-            //Console.WriteLine(musicFile.Tag.Track);
-            //Console.WriteLine(musicFile.Tag.TrackCount);
-            //Console.ReadKey();
+        private static void PrintHelp()
+        {
+            Console.WriteLine("morg - Music ORGanizer");
+            Console.WriteLine();
+            Console.WriteLine("OPTIONS");
+            Console.WriteLine("\tlist".PadRight(20) + "List all title plus album and artist.");
+            Console.WriteLine("\tquit".PadRight(20) + "Quit application without saving changes to files.");
+            Console.WriteLine("\tsave".PadRight(20) + "Save changes to files.");
+            Console.WriteLine("\tname [tr]".PadRight(20) + "Edit track name.");
+            Console.WriteLine("\tswap [tr1] [tr2]".PadRight(20) + "Swap position of [track1] and [track2].");
+            Console.WriteLine("\talbum".PadRight(20) + "Edit album name.");
+            Console.WriteLine("\tartist".PadRight(20) + "Edit album artist.");
         }
     }
 }
